@@ -42,8 +42,9 @@ try:
         endpoint_url=endpoint_url,
         aws_access_key_id=os.getenv('R2_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('R2_SECRET_ACCESS_KEY'),
-        region_name='auto' # R2 specific setting
+        region_name='weur' # Use a specific region like 'weur' to fix SSL issues
     )
+
     print("Successfully connected to Cloudflare R2.")
 except Exception as e:
     print(f"Could not connect to R2: {e}. Parquet file caching will be disabled.")
