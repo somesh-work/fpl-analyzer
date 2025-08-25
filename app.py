@@ -9,7 +9,7 @@ from tqdm import tqdm
 import warnings
 import numpy as np
 import pulp
-from sklearn.preprocessing import MinMaxScaler
+from mlxtend.preprocessing import MinMaxScaler
 import json
 import os
 import redis
