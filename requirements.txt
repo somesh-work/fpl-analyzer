@@ -9,5 +9,6 @@ scikit-learn
 openpyxl
 pyarrow
 redis
-boto3
+boto3==1.34.0
+urllib3==1.26.18
 gunicorn
