@@ -6,6 +6,7 @@ tqdm
 numpy
 pulp
 scikit-learn
-pyarrow
-gunicorn
 openpyxl
+pyarrow
+redis
+boto3
