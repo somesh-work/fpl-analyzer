@@ -35,7 +35,8 @@ try:
         aws_secret_access_key=os.getenv('R2_SECRET_ACCESS_KEY'),
         region_name='weur',
         verify=False,
-        config=Config(signature_version='s3v4') # <-- ADD THIS LINE
+        config=Config(signature_version='s3v4'), # <-- ADD THIS LINE
+        verify=False
     )
     print("Successfully connected to Cloudflare R2.")
 except Exception as e:
