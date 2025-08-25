@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPL Advanced Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #F9FAFB; /* text-gray-50 */
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1F2937; }
+        ::-webkit-scrollbar-thumb { background: #4B5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
+        .stat-card {
+            background-color: #1F2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .table-header { background-color: #374151; }
+        .table-footer { background-color: #374151; font-weight: bold; }
+        .loader {
+            border: 4px solid #4B5563;
+            border-top: 4px solid #34D399;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fdr-cell[data-fdr='1'] { background-color: #059669; color: white; }
+        .fdr-cell[data-fdr='2'] { background-color: #34D399; color: white; }
+        .fdr-cell[data-fdr='3'] { background-color: #6B7280; color: white; }
+        .fdr-cell[data-fdr='4'] { background-color: #EF4444; color: white; }
+        .fdr-cell[data-fdr='5'] { background-color: #B91C1C; color: white; }
+        .captain-badge {
+            background-color: #34D399;
+            color: #111827;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+        }
+        .comparison-winner {
+            background-color: rgba(52, 211, 153, 0.1);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex">
+
+    <aside id="sidebar" class="w-64 bg-gray-900 border-r border-gray-700 p-6 fixed h-full overflow-y-auto z-20 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+        <h1 class="text-2xl font-bold text-green-400 mb-8">FPL Analyzer</h1>
+        <nav class="space-y-2">
+            <a href="#my-fpl-team" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">My FPL Team</a>
+            <a href="#my-fpl-history" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">My Season History</a>
+            <a href="#transfer-suggester" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Transfer Suggester</a>
+            <a href="#predicted-team" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Predicted Team</a>
+            <a href="#prediction-playground" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Prediction Playground</a>
+            <a href="#review-team" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Review Predictions</a>
+            <a href="#fdr-ratings" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">FDR Ratings</a>
+            <a href="#pl-stats-1" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Player Leaderboards</a>
+            <a href="#pl-stats-2" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Advanced Player Stats</a>
+            <a href="#player-ict" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Player ICT</a>
+            <a href="#best-players" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Best Players by Position</a>
+            <a href="#best-teams" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Team Performance</a>
+            <a href="#team-ict-xgi" class="block py-2 px-4 rounded hover:bg-gray-700 transition-colors">Team ICT & xGI</a>
+            
+        </nav>
+    </aside>
+
+    <main class="flex-1 lg:ml-64 p-4 sm:p-6 md:p-8">
+        <!-- ADD THIS SNIPPET -->
+        <header class="lg:hidden flex justify-between items-center p-4 border-b border-gray-700 bg-gray-900 sticky top-0 z-10">
+            <h1 class="text-xl font-bold text-green-400">FPL Analyzer</h1>
+            <button id="menu-button" class="text-white focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </header>
+        <div class="max-w-7xl mx-auto">
+            
+            <header class="stat-card mb-8">
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <h2 class="text-3xl font-bold text-white">My FPL Dashboard</h2>
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <label for="gameweek" class="text-sm font-medium text-gray-400">Gameweek</label>
+                            <select id="gameweek" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5"></select>
+                        </div>
+                        <div>
+                            <label for="lag" class="text-sm font-medium text-gray-400">Trailing GWs</label>
+                            <input type="number" id="lag" value="4" min="0" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+                        </div>
+                        <button id="update-button" class="self-end bg-green-500 hover:bg-green-600 text-white font-bold py-2.5 px-5 rounded-lg transition-colors">Update</button>
+                        <button id="force-refresh-button" class="self-end bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 px-5 rounded-lg transition-colors hidden">Force Refresh</button>
+                        <button id="download-stats-button" class="self-end bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-5 rounded-lg transition-colors">Download Stats</button>
+                    </div>
+                </div>
+            </header>
+            
+            <div id="loading-indicator" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center z-50 hidden">
+                <div class="loader"></div>
+            </div>
+
+            <section id="my-fpl-team" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">My FPL Team Stats</h3>
+                <div class="stat-card mb-6">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div>
+                            <label for="manager-id" class="text-sm font-medium text-gray-400">Your FPL Manager ID</label>
+                            <input type="number" id="manager-id" placeholder="e.g., 2325320" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5">
+                        </div>
+                        <div>
+                            <label for="manager-gameweek" class="text-sm font-medium text-gray-400">Select Gameweek</label>
+                            <select id="manager-gameweek" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5"></select>
+                        </div>
+                        <button id="fetch-manager-data-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2.5 px-5 rounded-lg transition-colors">Get Team Analysis</button>
+                    </div>
+                </div>
+                <div class="stat-card" id="my-team-results-card">
+                    <p class="text-gray-400">Enter your manager ID and click "Get Team Analysis" to see your players' performance and transfer suggestions.</p>
+                </div>
+            </section>
+
+            <section id="my-fpl-history" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">My Season History</h3>
+                <div class="stat-card" id="my-season-history-card">
+                    <p class="text-gray-400">Enter your manager ID and click "Get Team Analysis" to see your season history.</p>
+                </div>
+                <div class="stat-card mt-6">
+                    <canvas id="seasonHistoryChart"></canvas>
+                </div>
+            </section>
+            
+            <section id="transfer-suggester" class="mb-12">
+                 <div class="stat-card" id="transfer-suggester-card">
+                    <!-- Suggestions will be rendered here -->
+                 </div>
+            </section>
+
+            <section id="predicted-team" class="mb-12">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-semibold">Predicted Team for GW<span id="next-gw"></span></h3>
+                    <div id="predicted-team-totals" class="text-right"></div>
+                </div>
+                <div class="stat-card" id="predicted-team-card"></div>
+            </section>
+
+            <section id="prediction-playground" class="mb-12">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-semibold">Prediction Playground</h3>
+                    <div id="playground-team-totals" class="text-right"></div>
+                </div>
+                <div class="stat-card mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Attacking Weights -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-green-400 mb-2">Attacking Weights</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="weight-xGI" class="flex justify-between text-sm font-medium text-gray-300"><span>xGI</span><span id="val-xGI">0.45</span></label>
+                                    <input id="weight-xGI" type="range" min="0" max="1" step="0.05" value="0.45" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-ict" class="flex justify-between text-sm font-medium text-gray-300"><span>ICT Index</span><span id="val-ict">0.30</span></label>
+                                    <input id="weight-ict" type="range" min="0" max="1" step="0.05" value="0.30" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-form" class="flex justify-between text-sm font-medium text-gray-300"><span>Form</span><span id="val-form">0.10</span></label>
+                                    <input id="weight-form" type="range" min="0" max="1" step="0.05" value="0.10" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-ppg_last_4" class="flex justify-between text-sm font-medium text-gray-300"><span>Recent PPG</span><span id="val-ppg_last_4">0.15</span></label>
+                                    <input id="weight-ppg_last_4" type="range" min="0" max="1" step="0.05" value="0.15" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Defensive Weights -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-green-400 mb-2">Defensive Weights</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="weight-def_xGC" class="flex justify-between text-sm font-medium text-gray-300"><span>Team xGC</span><span id="val-def_xGC">0.35</span></label>
+                                    <input id="weight-def_xGC" type="range" min="0" max="1" step="0.05" value="0.35" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-def_xGI" class="flex justify-between text-sm font-medium text-gray-300"><span>Player xGI (DEF)</span><span id="val-def_xGI">0.25</span></label>
+                                    <input id="weight-def_xGI" type="range" min="0" max="1" step="0.05" value="0.25" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-def_ict" class="flex justify-between text-sm font-medium text-gray-300"><span>Player ICT (DEF)</span><span id="val-def_ict">0.25</span></label>
+                                    <input id="weight-def_ict" type="range" min="0" max="1" step="0.05" value="0.25" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-def_ppg" class="flex justify-between text-sm font-medium text-gray-300"><span>Player PPG (DEF)</span><span id="val-def_ppg">0.15</span></label>
+                                    <input id="weight-def_ppg" type="range" min="0" max="1" step="0.05" value="0.15" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Goalkeeper & Global Weights -->
+                        <div>
+                            <h4 class="text-lg font-semibold text-green-400 mb-2">GKP & Global Weights</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="weight-gkp_xGC" class="flex justify-between text-sm font-medium text-gray-300"><span>Team xGC (GKP)</span><span id="val-gkp_xGC">0.50</span></label>
+                                    <input id="weight-gkp_xGC" type="range" min="0" max="1" step="0.05" value="0.50" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-gkp_ppg" class="flex justify-between text-sm font-medium text-gray-300"><span>Player PPG (GKP)</span><span id="val-gkp_ppg">0.50</span></label>
+                                    <input id="weight-gkp_ppg" type="range" min="0" max="1" step="0.05" value="0.50" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                                <div>
+                                    <label for="weight-fdr" class="flex justify-between text-sm font-medium text-gray-300"><span>FDR Multiplier</span><span id="val-fdr">1.0</span></label>
+                                    <input id="weight-fdr" type="range" min="0" max="2" step="0.1" value="1.0" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button id="recalculate-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors">Recalculate with Custom Weights</button>
+                        <!-- ADD THIS NEW BUTTON -->
+                        <button id="reset-weights-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors">Reset Weights</button>
+                    </div>
+                </div>
+                <div class="stat-card mt-6" id="playground-results-card">
+                    <p class="text-gray-400">Adjust the sliders and click "Recalculate" to see your custom-weighted optimal team.</p>
+                </div>
+            </section>
+
+            <section id="review-team" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Review Past Gameweek Predictions</h3>
+                <div class="stat-card mb-6">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <label for="review-gameweek" class="text-sm font-medium text-gray-400">Select Gameweek to Review</label>
+                            <select id="review-gameweek" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full p-2.5"></select>
+                        </div>
+                        <button id="fetch-review-button" class="self-end bg-purple-500 hover:bg-purple-600 text-white font-bold py-2.5 px-5 rounded-lg transition-colors">Review Team</button>
+                    </div>
+                </div>
+                <div class="stat-card" id="review-team-card">
+                    <p class="text-gray-400">Select a past gameweek to see how the model's prediction would have performed.</p>
+                </div>
+            </section>
+
+            <section id="fdr-ratings" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Upcoming Fixture Difficulty (FDR)</h3>
+                <div class="stat-card" id="fdr-card"></div>
+            </section>
+
+            <section id="pl-stats-1" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Player Leaderboards</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card" id="most-goals-card"></div>
+                    <div class="stat-card" id="most-assists-card"></div>
+                    <div class="stat-card" id="most-g-a-card"></div>
+                    <div class="stat-card" id="most-saves-card"></div>
+                </div>
+            </section>
+
+            <section id="pl-stats-2" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Advanced Player Stats</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card" id="most-bps-card"></div>
+                    <div class="stat-card" id="expected-goals-card"></div>
+                    <div class="stat-card" id="expected-assists-card"></div>
+                    <div class="stat-card" id="expected-gi-card"></div>
+                </div>
+            </section>
+
+            <section id="player-ict" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Player ICT Index by Position</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card" id="top-gkp-ict-card"></div>
+                    <div class="stat-card" id="top-def-ict-card"></div>
+                    <div class="stat-card" id="top-mid-ict-card"></div>
+                    <div class="stat-card" id="top-fwd-ict-card"></div>
+                </div>
+            </section>
+
+            <section id="best-players" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Best Players by Position (Total Points)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card" id="top-forwards-card"></div>
+                    <div class="stat-card" id="top-midfielders-card"></div>
+                    <div class="stat-card" id="top-defenders-card"></div>
+                    <div class="stat-card" id="top-goalkeepers-card"></div>
+                </div>
+            </section>
+            
+            <section id="best-teams" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Team Performance (Total Points)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="stat-card" id="top-attack-card"></div>
+                    <div class="stat-card" id="top-defence-card"></div>
+                    <div class="stat-card" id="worst-attack-card"></div>
+                    <div class="stat-card" id="worst-defence-card"></div>
+                </div>
+            </section>
+
+            <section id="team-ict-xgi" class="mb-12">
+                <h3 class="text-2xl font-semibold mb-4">Team ICT & xGI Performance</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                    <div class="stat-card" id="top-attack-ict-card"></div>
+                    <div class="stat-card" id="top-defence-ict-card"></div>
+                    <div class="stat-card" id="top-attack-xgi-card"></div>
+                    <div class="stat-card" id="top-defence-xgc-card"></div>
+                </div>
+            </section>
+
+        </div>
+        <footer class="text-center mt-12 py-6 border-t border-gray-700 text-gray-500 text-sm">
+        <p>&copy; 2025 FPL Analyzer. All rights reserved.</p>
+        <p class="mt-2"> All data is sourced from the official Fantasy Premier League API.</p>
+        <p class="mt-2">This is an independent project and is not affiliated with the Premier League or FPL.</p>
+        <p class="mt-2">Contact: <a href="mailto:shaunthepunter@gmail.com" class="text-green-400 hover:underline">shaunthepunter@gmail.com</a></p>
+        </footer>
+
+    </main>
+
+    <script>
+        // --- CONFIGURATION ---
+        const API_BASE_URL = 'http://127.0.0.1:1927/api'; // Explicit URL for local development
+        let seasonChartInstance = null;
+        let latestGw = 0;
+
+        // --- DOM ELEMENTS ---
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const gameweekSelect = document.getElementById('gameweek');
+        const lagInput = document.getElementById('lag');
+        const updateButton = document.getElementById('update-button');
+        const forceRefreshButton = document.getElementById('force-refresh-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const managerIdInput = document.getElementById('manager-id');
+        const fetchManagerDataButton = document.getElementById('fetch-manager-data-button');
+        const myTeamResultsCard = document.getElementById('my-team-results-card');
+        const mySeasonHistoryCard = document.getElementById('my-season-history-card');
+        const reviewGameweekSelect = document.getElementById('review-gameweek');
+        const fetchReviewButton = document.getElementById('fetch-review-button');
+        const reviewTeamCard = document.getElementById('review-team-card');
+        const predictedTeamCard = document.getElementById('predicted-team-card');
+        const predictedTeamTotals = document.getElementById('predicted-team-totals');
+        const managerGameweekSelect = document.getElementById('manager-gameweek');
+        const transferSuggesterCard = document.getElementById('transfer-suggester-card');
+        const playgroundResultsCard = document.getElementById('playground-results-card');
+        const recalculateButton = document.getElementById('recalculate-button');
+        const downloadStatsButton = document.getElementById('download-stats-button');
+        const playgroundTeamTotals = document.getElementById('playground-team-totals');
+        const resetWeightsButton = document.getElementById('reset-weights-button');
+        
+        // --- UTILITY FUNCTIONS ---
+        function toggleLoading(show) {
+            loadingIndicator.classList.toggle('hidden', !show);
+        }
+
+        function createTableHTML(title, data, columns, captaincy = {}) {
+            if (!data || data.length === 0) {
+                return `<h4 class="text-lg font-semibold text-green-400 mb-3">${title}</h4><p class="text-gray-400">No data available.</p>`;
+            }
+            const headers = columns.map(col => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">${col.replace(/_/g, ' ')}</th>`).join('');
+            const rows = data.map(row => {
+                const cells = columns.map(col => {
+                    let value = row[col];
+                    if (typeof value === 'number' && !Number.isInteger(value)) {
+                        value = value.toFixed(2);
+                    }
+                    // Add captaincy badges
+                    if (col === 'web_name') {
+                        if (captaincy.captain === value) value += ` <span class="captain-badge">C</span>`;
+                        if (captaincy.viceCaptain === value) value += ` <span class="captain-badge" style="background-color: #6B7280;">V</span>`;
+                    }
+                    return `<td class="px-4 py-2 whitespace-nowrap text-sm text-gray-200">${value ?? 'N/A'}</td>`;
+                }).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+            return `
+                <h4 class="text-lg font-semibold text-green-400 mb-3">${title}</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="table-header"><tr>${headers}</tr></thead>
+                        <tbody class="bg-gray-800 divide-y divide-gray-700">${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+        
+        function createFDRTableHTML(data) {
+            if (!data || data.length === 0) {
+                return `<p class="text-gray-400">No FDR data available.</p>`;
+            }
+            const startGw = parseInt(gameweekSelect.value) + 1;
+            const gameweekColumns = Array.from({ length: 6 }, (_, i) => startGw + i);
+            const headers = ['Team', 'Total FDR', ...gameweekColumns.map(gw => `GW ${gw}`)].map(h => `<th class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">${h}</th>`).join('');
+            const rows = data.map(row => {
+                const teamCell = `<td class="px-4 py-2 whitespace-nowrap text-xs font-semibold text-gray-200">${row.name}</td>`;
+                const fdrSumCell = `<td class="px-4 py-2 whitespace-nowrap text-xs font-bold text-gray-200">${row.fdr_sum}</td>`;
+                const fdrCells = gameweekColumns.map(gw => {
+                    const fixture = row.fixtures[gw];
+                    if (fixture) {
+                        return `<td class="fdr-cell text-center font-bold px-4 py-2 text-xs" data-fdr="${fixture.fdr}">${fixture.opponent} (${fixture.location})</td>`;
+                    }
+                    return `<td class="px-4 py-2"></td>`;
+                }).join('');
+                return `<tr>${teamCell}${fdrSumCell}${fdrCells}</tr>`;
+            }).join('');
+            return `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="table-header"><tr>${headers}</tr></thead>
+                        <tbody class="bg-gray-800 divide-y divide-gray-700">${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function resetWeights() {
+            const defaultWeights = {
+                'xGI': 0.45, 'ict': 0.20, 'form': 0.10, 'ppg_last_4': 0.25,
+                'def_xGC': 0.45, 'def_xGI': 0.20, 'def_ict': 0.10, 'def_ppg': 0.25,
+                'gkp_xGC': 0.55, 'gkp_ppg': 0.45, 'fdr': 1.0
+            };
+
+            for (const key in defaultWeights) {
+                const slider = document.getElementById(`weight-${key}`);
+                const valueSpan = document.getElementById(`val-${key}`);
+                if (slider && valueSpan) {
+                    slider.value = defaultWeights[key];
+                    valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+                }
+            }
+        }
+
+        // --- DATA FETCHING & RENDERING ---
+        async function fetchAndRenderReviewTeam() {
+            const gw = reviewGameweekSelect.value;
+            if (!gw) {
+                reviewTeamCard.innerHTML = `<p class="text-yellow-400">Please select a gameweek to review.</p>`;
+                return;
+            }
+            reviewTeamCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            try {
+                const response = await fetch(`${API_BASE_URL}/review-team?gw=${gw}`);
+                const data = await response.json();
+                if (response.ok) {
+                    const columns = ['status', 'web_name', 'team_name', 'position', 'cost', 'xGI', 'ICT', 'Recent PPG', 'Avg FDR', 'predicted_points', 'actual_points'];
+                    let tableHTML = createTableHTML(`Prediction Review for GW ${gw}`, data.team, columns, data.captaincy);
+                    const tableElement = document.createElement('div');
+                    tableElement.innerHTML = tableHTML;
+                    const footer = document.createElement('tfoot');
+                    footer.className = 'table-footer';
+                    footer.innerHTML = `
+                        <tr>
+                            <td class="px-4 py-2" colspan="4">Totals</td>
+                            <td class="px-4 py-2">£${data.totals.cost}m</td>
+                            <td class="px-4 py-2" colspan="4">Active Team Totals</td>
+                            <td class="px-4 py-2">${data.totals.predicted_points.toFixed(2)}</td>
+                            <td class="px-4 py-2">${data.totals.actual_points}</td>
+                        </tr>
+                    `;
+                    tableElement.querySelector('table').appendChild(footer);
+                    reviewTeamCard.innerHTML = tableElement.innerHTML;
+                } else {
+                    reviewTeamCard.innerHTML = `<p class="text-red-400">${data.error || 'An unknown error occurred.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error fetching review team:', error);
+                reviewTeamCard.innerHTML = `<p class="text-red-400">Could not connect to the server.</p>`;
+            }
+        }
+        
+        async function fetchAndRenderManagerData() {
+            const managerId = managerIdInput.value;
+            if (!managerId) {
+                myTeamResultsCard.innerHTML = `<p class="text-yellow-400">Please enter a Manager ID.</p>`;
+                mySeasonHistoryCard.innerHTML = `<p class="text-gray-400">Enter your manager ID to see your season history.</p>`;
+                transferSuggesterCard.innerHTML = '';
+                if (seasonChartInstance) seasonChartInstance.destroy();
+                return;
+            }
+            
+            myTeamResultsCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            transferSuggesterCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            
+            fetchAndRenderManagerHistory(managerId);
+
+            const gw = managerGameweekSelect.value;
+
+            try {
+                const [teamRes, suggestionRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/manager-team?manager_id=${managerId}&gw=${gw}`),
+                    fetch(`${API_BASE_URL}/transfer-suggestions?manager_id=${managerId}&gw=${gw}`)
+                ]);
+
+                // Handle Team Data
+                const teamData = await teamRes.json();
+                if (teamRes.ok) {
+                    myTeamResultsCard.innerHTML = createTableHTML(`GW ${gw} Team Performance`, teamData, ['status', 'web_name', 'team', 'position', 'total_points', 'multiplier', 'goals_scored', 'assists']);
+                } else {
+                    myTeamResultsCard.innerHTML = `<p class="text-red-400">${teamData.error || 'An unknown error occurred.'}</p>`;
+                }
+
+                // Handle Transfer Suggestions
+                const suggestionData = await suggestionRes.json();
+                if (suggestionRes.ok) {
+                    const suggestionCols = ['web_name', 'team_name', 'position', 'cost', 'predicted_points', 'avg_fdr', 'selected_by_percent'];
+                    const buyHTML = createTableHTML('Top Buys', suggestionData.buy, suggestionCols);
+                    const sellHTML = createTableHTML('Top Sells', suggestionData.sell, suggestionCols);
+                    const keepHTML = createTableHTML('Top Keeps', suggestionData.keep, suggestionCols);
+                    const diffHTML = createTableHTML('Top Differentials (<3% Owned)', suggestionData.differentials, suggestionCols);
+                    transferSuggesterCard.innerHTML = `
+                        <h3 class="text-2xl font-semibold mb-4">Transfer Suggestions for GW${parseInt(gw) + 1}</h3>
+                        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div class="stat-card">${buyHTML}</div>
+                            <div class="stat-card">${sellHTML}</div>
+                            <div class="stat-card">${keepHTML}</div>
+                            <div class="stat-card">${diffHTML}</div>
+                        </div>
+                    `;
+                } else {
+                    transferSuggesterCard.innerHTML = `<p class="text-red-400">${suggestionData.error || 'Could not load suggestions.'}</p>`;
+                }
+
+            } catch (error) {
+                console.error('Error fetching manager data:', error);
+                myTeamResultsCard.innerHTML = `<p class="text-red-400">Could not connect to the server.</p>`;
+                transferSuggesterCard.innerHTML = '';
+            }
+        }
+
+        async function fetchAndRenderManagerHistory(managerId) {
+            mySeasonHistoryCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            try {
+                // Fetch manager history first
+                const managerRes = await fetch(`${API_BASE_URL}/manager-history?manager_id=${managerId}`);
+                if (!managerRes.ok) {
+                    const errorData = await managerRes.json().catch(() => ({ error: "Invalid JSON response from server." }));
+                    throw new Error(errorData.error || `Manager history request failed with status ${managerRes.status}`);
+                }
+                const managerData = await managerRes.json();
+
+                // Then fetch predicted history
+                const predictedRes = await fetch(`${API_BASE_URL}/predicted-history`);
+                if (!predictedRes.ok) {
+                    const errorData = await predictedRes.json().catch(() => ({ error: "Invalid JSON response from server." }));
+                    throw new Error(errorData.error || `Predicted history request failed with status ${predictedRes.status}`);
+                }
+                const predictedData = await predictedRes.json();
+
+
+                const predictedMap = new Map(predictedData.map(item => [item.gameweek, item.predicted_team_points]));
+                const mergedData = managerData.map(item => ({
+                    ...item,
+                    predicted_team_points: predictedMap.get(item.gameweek) || 0
+                }));
+
+                // --- BACKTESTING SUMMARY ---
+                const totalYourPoints = mergedData.reduce((sum, item) => sum + item.your_points, 0);
+                const totalPredictedPoints = mergedData.reduce((sum, item) => sum + item.predicted_team_points, 0);
+                const totalAveragePoints = mergedData.reduce((sum, item) => sum + item.average_points, 0);
+                
+                const backtestingSummary = `
+                    <div class="mb-4 p-4 bg-gray-800 rounded-lg">
+                        <h4 class="text-lg font-semibold text-green-400 mb-2">Backtesting Summary</h4>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-sm text-gray-400">Your Total Score</p>
+                                <p class="text-2xl font-bold text-white">${totalYourPoints}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-400">Model's Total Score</p>
+                                <p class="text-2xl font-bold text-amber-400">${totalPredictedPoints}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-400">Overall Average Score</p>
+                                <p class="text-2xl font-bold text-blue-400">${totalAveragePoints}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                const columns = ['gameweek', 'your_points', 'predicted_team_points', 'average_points', 'max_points'];
+                mySeasonHistoryCard.innerHTML = backtestingSummary + createTableHTML('Season Performance', mergedData, columns);
+                renderSeasonHistoryChart(mergedData);
+
+            } catch (error) {
+                console.error('Error fetching manager history:', error);
+                mySeasonHistoryCard.innerHTML = `<p class="text-red-400">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function fetchAndRenderFDR() {
+            const fdrCard = document.getElementById('fdr-card');
+            fdrCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            try {
+                const gw = gameweekSelect.value;
+                const lag = lagInput.value;
+                const response = await fetch(`${API_BASE_URL}/fdr?gw=${gw}&lag=${lag}`);
+                const data = await response.json();
+                fdrCard.innerHTML = response.ok ? createFDRTableHTML(data) : `<p class="text-red-400">${data.error || 'An unknown error occurred.'}</p>`;
+            } catch (error) {
+                console.error('Error fetching FDR data:', error);
+                fdrCard.innerHTML = `<p class="text-red-400">Could not connect to the server.</p>`;
+            }
+        }
+        
+        async function fetchAndRenderPredictedTeam() {
+            predictedTeamCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            predictedTeamTotals.innerHTML = '';
+            try {
+                const gw = gameweekSelect.value;
+                const response = await fetch(`${API_BASE_URL}/predicted-team?gw=${gw}`);
+                const data = await response.json();
+                if (response.ok) {
+                    predictedTeamTotals.innerHTML = `
+                        <h4 class="font-semibold text-lg">Total Cost: <span class="text-green-400">£${data.totals.cost}m</span></h4>
+                        <h4 class="font-semibold text-lg">Predicted XI Points: <span class="text-green-400">${data.totals.predicted_points.toFixed(2)}</span></h4>
+                    `;
+                    
+                    // --- CAPTAINCY LOGIC ---
+                    const activePlayers = data.team.filter(p => p.status === 'Active');
+                    activePlayers.sort((a, b) => b.predicted_points - a.predicted_points);
+                    const captaincy = {
+                        captain: activePlayers.length > 0 ? activePlayers[0].web_name : null,
+                        viceCaptain: activePlayers.length > 1 ? activePlayers[1].web_name : null
+                    };
+
+                    const columns = ['status', 'web_name', 'team_name', 'position', 'cost', 'xGI', 'ICT', 'Recent PPG', 'Avg FDR', 'predicted_points'];
+                    predictedTeamCard.innerHTML = createTableHTML('Optimized Squad', data.team, columns, captaincy);
+                } else {
+                    predictedTeamCard.innerHTML = `<p class="text-red-400">${data.error || 'An unknown error occurred.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error fetching predicted team:', error);
+                predictedTeamCard.innerHTML = `<p class="text-red-400">Could not connect to the server.</p>`;
+            }
+        }
+
+        async function fetchAndRenderPlaygroundTeam() {
+            playgroundResultsCard.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            
+            const weights = {
+                'xGI': parseFloat(document.getElementById('weight-xGI').value),
+                'ict': parseFloat(document.getElementById('weight-ict').value),
+                'form': parseFloat(document.getElementById('weight-form').value),
+                'ppg_last_4': parseFloat(document.getElementById('weight-ppg_last_4').value),
+                'def_xGC': parseFloat(document.getElementById('weight-def_xGC').value),
+                'def_xGI': parseFloat(document.getElementById('weight-def_xGI').value),
+                'def_ict': parseFloat(document.getElementById('weight-def_ict').value),
+                'def_ppg': parseFloat(document.getElementById('weight-def_ppg').value),
+                'gkp_xGC': parseFloat(document.getElementById('weight-gkp_xGC').value),
+                'gkp_ppg': parseFloat(document.getElementById('weight-gkp_ppg').value),
+                'fdr': parseFloat(document.getElementById('weight-fdr').value)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/prediction-playground`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(weights)
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    // ADD THESE 3 LINES
+                    document.getElementById('playground-team-totals').innerHTML = `
+                        <h4 class="font-semibold text-lg">Total Cost: <span class="text-green-400">£${data.totals.cost}m</span></h4>
+                        <h4 class="font-semibold text-lg">Predicted XI Points: <span class="text-green-400">${data.totals.predicted_points.toFixed(2)}</span></h4>
+                    `;
+
+                    const activePlayers = data.team.filter(p => p.status === 'Active');
+                    activePlayers.sort((a, b) => b.predicted_points - a.predicted_points);
+                    const captaincy = {
+                        captain: activePlayers.length > 0 ? activePlayers[0].web_name : null,
+                        viceCaptain: activePlayers.length > 1 ? activePlayers[1].web_name : null
+                    };
+                    const columns = ['status', 'web_name', 'team_name', 'position', 'cost', 'predicted_points'];
+                    playgroundResultsCard.innerHTML = createTableHTML('Custom Weighted Optimal Squad', data.team, columns, captaincy);
+                } else {
+                    playgroundResultsCard.innerHTML = `<p class="text-red-400">${data.error || 'An unknown error occurred.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error fetching playground team:', error);
+                playgroundResultsCard.innerHTML = `<p class="text-red-400">Could not connect to the server.</p>`;
+            }
+        }
+
+
+
+        function renderSeasonHistoryChart(data) {
+            if (seasonChartInstance) {
+                seasonChartInstance.destroy();
+            }
+            const ctx = document.getElementById('seasonHistoryChart').getContext('2d');
+            const labels = data.map(item => `GW ${item.gameweek}`);
+            seasonChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Your Points', data: data.map(item => item.your_points), borderColor: '#34D399', backgroundColor: 'rgba(52, 211, 153, 0.1)', fill: true, tension: 0.3 },
+                        { label: 'Predicted Team Score', data: data.map(item => item.predicted_team_points), borderColor: '#FBBF24', backgroundColor: 'rgba(251, 191, 36, 0.1)', fill: true, tension: 0.3 },
+                        { label: 'Average Points', data: data.map(item => item.average_points), borderColor: '#60A5FA', backgroundColor: 'rgba(96, 165, 250, 0.1)', fill: true, tension: 0.3 },
+                        { label: 'Max GW Score', data: data.map(item => item.max_points), borderColor: '#F87171', backgroundColor: 'rgba(248, 113, 113, 0.1)', fill: false, borderDash: [5, 5], tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#D1D5DB' } }, title: { display: true, text: 'Season Points Comparison', color: '#F9FAFB', font: { size: 16 } } },
+                    scales: { y: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } }, x: { ticks: { color: '#9CA3AF' }, grid: { display: false } } }
+                }
+            });
+        }
+
+
+        
+        // --- REFACTORED DASHBOARD UPDATE LOGIC ---
+        const STAT_CARD_CONFIG = {
+            'stats/pl-stats-1': [
+                { cardId: 'most-goals-card', dataKey: 'most_goals', title: 'Most Goals', columns: ['web_name', 'team', 'goals_scored', 'expected_goals'] },
+                { cardId: 'most-assists-card', dataKey: 'most_assists', title: 'Most Assists', columns: ['web_name', 'team', 'assists', 'expected_assists'] },
+                { cardId: 'most-g-a-card', dataKey: 'most_g_a', title: 'Most G+A', columns: ['web_name', 'team', 'goals_n_assists', 'expected_goal_involvements'] },
+                { cardId: 'most-saves-card', dataKey: 'most_saves', title: 'Most Saves', columns: ['web_name', 'team', 'saves', 'total_points'] }
+            ],
+            'stats/pl-stats-2': [
+                { cardId: 'most-bps-card', dataKey: 'most_bps', title: 'Most Bonus Points', columns: ['web_name', 'team', 'bps', 'total_points'] },
+                { cardId: 'expected-goals-card', dataKey: 'expected_goals', title: 'Highest xG', columns: ['web_name', 'team', 'expected_goals', 'total_points'] },
+                { cardId: 'expected-assists-card', dataKey: 'expected_assists', title: 'Highest xA', columns: ['web_name', 'team', 'expected_assists', 'total_points'] },
+                { cardId: 'expected-gi-card', dataKey: 'expected_gi', title: 'Highest xGI', columns: ['web_name', 'team', 'expected_goal_involvements', 'total_points'] }
+            ],
+            'stats/best-players-by-position': [
+                { cardId: 'top-forwards-card', dataKey: 'top_forwards', title: 'Top Forwards', columns: ['web_name', 'team', 'total_points', 'ict_index'] },
+                { cardId: 'top-midfielders-card', dataKey: 'top_midfielders', title: 'Top Midfielders', columns: ['web_name', 'team', 'total_points', 'ict_index'] },
+                { cardId: 'top-defenders-card', dataKey: 'top_defenders', title: 'Top Defenders', columns: ['web_name', 'team', 'total_points', 'ict_index'] },
+                { cardId: 'top-goalkeepers-card', dataKey: 'top_goalkeepers', title: 'Top Goalkeepers', columns: ['web_name', 'team', 'total_points', 'ict_index'] }
+            ],
+            'stats/best-teams': [
+                { cardId: 'top-attack-card', dataKey: 'top_attack', title: 'Top Attack', columns: ['team', 'total_points', 'expected_goal_involvements'] },
+                { cardId: 'top-defence-card', dataKey: 'top_defence', title: 'Top Defence', columns: ['team', 'total_points', 'expected_goals_conceded'] },
+                { cardId: 'worst-attack-card', dataKey: 'worst_attack', title: 'Worst Attack', columns: ['team', 'total_points', 'expected_goal_involvements'] },
+                { cardId: 'worst-defence-card', dataKey: 'worst_defence', title: 'Worst Defence', columns: ['team', 'total_points', 'expected_goals_conceded'] }
+            ],
+            'stats/team-ict-xgi': [
+                { cardId: 'top-attack-ict-card', dataKey: 'top_attack_ict', title: 'Top Attack (ICT)', columns: ['team', 'ict_index'] },
+                { cardId: 'top-defence-ict-card', dataKey: 'top_defence_ict', title: 'Top Defence (ICT)', columns: ['team', 'ict_index'] },
+                { cardId: 'top-attack-xgi-card', dataKey: 'top_attack_xgi', title: 'Top Attack (xGI)', columns: ['team', 'expected_goal_involvements'] },
+                { cardId: 'top-defence-xgc-card', dataKey: 'top_defence_xgc', title: 'Top Defence (xGC)', columns: ['team', 'expected_goals_conceded'] }
+            ],
+            'stats/player-ict-by-position': [
+                { cardId: 'top-gkp-ict-card', dataKey: 'top_gkp_ict', title: 'Top Goalkeepers (ICT)', columns: ['web_name', 'team', 'ict_index', 'total_points'] },
+                { cardId: 'top-def-ict-card', dataKey: 'top_def_ict', title: 'Top Defenders (ICT)', columns: ['web_name', 'team', 'ict_index', 'total_points'] },
+                { cardId: 'top-mid-ict-card', dataKey: 'top_mid_ict', title: 'Top Midfielders (ICT)', columns: ['web_name', 'team', 'ict_index', 'total_points'] },
+                { cardId: 'top-fwd-ict-card', dataKey: 'top_fwd_ict', title: 'Top Forwards (ICT)', columns: ['web_name', 'team', 'ict_index', 'total_points'] }
+            ]
+        };
+
+        async function updateDashboard() {
+            toggleLoading(true);
+            const currentGw = parseInt(gameweekSelect.value);
+            document.getElementById('next-gw').textContent = isNaN(currentGw) ? '' : currentGw + 1;
+            
+            const gw = gameweekSelect.value;
+            const lag = lagInput.value;
+
+            const promises = Object.keys(STAT_CARD_CONFIG).map(endpoint =>
+                fetch(`${API_BASE_URL}/${endpoint}?gw=${gw}&lag=${lag}`)
+                    .then(res => res.json())
+                    .then(data => ({ endpoint, data }))
+                    .catch(error => ({ endpoint, error }))
+            );
+            
+            // Add non-stat-card fetches
+            promises.push(fetchAndRenderPredictedTeam());
+            promises.push(fetchAndRenderFDR());
+
+            const results = await Promise.all(promises);
+
+            results.forEach(result => {
+                if (result && result.endpoint && result.data) {
+                    STAT_CARD_CONFIG[result.endpoint].forEach(config => {
+                        const cardData = result.data[config.dataKey];
+                        document.getElementById(config.cardId).innerHTML = createTableHTML(config.title, cardData, config.columns);
+                    });
+                }
+            });
+
+            toggleLoading(false);
+        }
+
+        async function handleForceRefresh() {
+            toggleLoading(true);
+            try {
+                const response = await fetch(`${API_BASE_URL}/force-refresh`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok) {
+                    alert('Data refresh successful! The page will now reload.');
+                    window.location.reload();
+                } else {
+                    throw new Error(data.error || 'Unknown error during refresh.');
+                }
+            } catch (error) {
+                alert(`Error during refresh: ${error.message}`);
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // --- NEW FUNCTION TO HANDLE DOWNLOAD ---
+        async function handleDownload() {
+            toggleLoading(true);
+            const gw = gameweekSelect.value;
+            const lag = lagInput.value;
+            try {
+                const response = await fetch(`${API_BASE_URL}/download-stats?gw=${gw}&lag=${lag}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `fpl_stats_gw${gw}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                console.error('Error downloading stats:', error);
+                alert('Failed to download stats. Please check the console for details.');
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+
+        // --- INITIALIZATION ---
+        async function initializeApp() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (localStorage.getItem('fpl_admin') === 'your_secret_password_here') {
+                    forceRefreshButton.classList.remove('hidden');
+                }
+                
+                toggleLoading(true);
+                const response = await fetch(`${API_BASE_URL}/latest-gameweek`);
+                if (!response.ok) throw new Error('Failed to fetch latest gameweek');
+                const data = await response.json();
+                latestGw = data.latest_gameweek;
+                
+                gameweekSelect.innerHTML = '';
+                reviewGameweekSelect.innerHTML = '';
+                managerGameweekSelect.innerHTML = '';
+
+                // Populate dropdowns only up to the latest finished gameweek
+                const maxGwToShow = latestGw > 0 ? latestGw : 38;
+                for (let i = 1; i <= maxGwToShow; i++) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `GW ${i}`;
+                    if (i <= latestGw || latestGw === 0) {
+                        gameweekSelect.appendChild(option.cloneNode(true));
+                        reviewGameweekSelect.appendChild(option.cloneNode(true));
+                        managerGameweekSelect.appendChild(option.cloneNode(true));
+                    }
+                }
+                
+                gameweekSelect.value = latestGw > 0 ? latestGw : 1;
+                if (reviewGameweekSelect.options.length > 0) {
+                   reviewGameweekSelect.value = latestGw > 0 ? latestGw : 1;
+                   managerGameweekSelect.value = latestGw > 0 ? latestGw : 1;
+                }
+
+                updateButton.addEventListener('click', updateDashboard);
+                fetchReviewButton.addEventListener('click', fetchAndRenderReviewTeam);
+                fetchManagerDataButton.addEventListener('click', fetchAndRenderManagerData);
+                forceRefreshButton.addEventListener('click', handleForceRefresh);
+                recalculateButton.addEventListener('click', fetchAndRenderPlaygroundTeam);
+                downloadStatsButton.addEventListener('click', handleDownload);
+                menuButton.addEventListener('click', () => {sidebar.classList.toggle('-translate-x-full');});
+                resetWeightsButton.addEventListener('click', resetWeights);
+
+                // Add event listeners for sliders to update their value display
+                document.querySelectorAll('#prediction-playground input[type="range"]').forEach(slider => {
+                    const valueSpan = document.getElementById(`val-${slider.id.split('-')[1]}`);
+                    slider.addEventListener('input', () => {
+                        valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+                    });
+                });
+
+                await updateDashboard();
+            } catch (error) {
+                console.error("Failed to initialize the app:", error);
+                document.body.innerHTML = `<div class="text-center p-8 text-red-400"><h2>Failed to connect to the backend server.</h2><p>Please ensure the Python Flask server (app.py) is running and accessible.</p></div>`;
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>

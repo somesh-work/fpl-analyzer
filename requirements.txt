@@ -1,0 +1,11 @@
+flask
+flask_cors
+pandas
+requests
+tqdm
+numpy
+pulp
+scikit-learn
+pyarrow
+gunicorn
+openpyxl
