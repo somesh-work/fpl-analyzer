@@ -10,3 +10,4 @@ openpyxl
 pyarrow
 redis
 boto3
+gunicorn
