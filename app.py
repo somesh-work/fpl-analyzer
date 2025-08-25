@@ -304,7 +304,7 @@ def _get_optimal_team_for_gw(gw_to_predict, is_review=False, custom_weights=None
         lineup_prob += pulp.lpSum([lineup_vars[p['id']] for _, p in squad_df.iterrows() if p['element_type'] == 3]) >= 2
         lineup_prob += pulp.lpSum([lineup_vars[p['id']] for _, p in squad_df.iterrows() if p['element_type'] == 3]) <= 5
         lineup_prob += pulp.lpSum([lineup_vars[p['id']] for _, p in squad_df.iterrows() if p['element_type'] == 4]) >= 1
-        lineup_prob += pulp.lpSum([line_vars[p['id']] for _, p in squad_df.iterrows() if p['element_type'] == 4]) <= 3
+        lineup_prob += pulp.lpSum([lineup_vars[p['id']] for _, p in squad_df.iterrows() if p['element_type'] == 4]) <= 3
         
         lineup_prob.solve(pulp.PULP_CBC_CMD(msg=0))
         active_player_ids = [pid for pid, var in lineup_vars.items() if var.value() == 1]
