@@ -34,7 +34,6 @@ try:
         aws_access_key_id=os.getenv('R2_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('R2_SECRET_ACCESS_KEY'),
         region_name='weur',
-        verify=False,
         config=Config(signature_version='s3v4'), # <-- ADD THIS LINE
         verify=False
     )
