@@ -1,5 +1,7 @@
 # app.py - Final Backend Code with Redis and R2 Caching
 
+# Copyright © 2025 Somesh Kumar. All Rights Reserved.
+
 from flask import Flask, jsonify, request, send_file
 from io import BytesIO
 from flask_cors import CORS
