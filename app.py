@@ -717,14 +717,213 @@ def get_top_performers(df_slice, group_by_cols, agg_dict, sort_by_cols, head_n=1
     )
     return result.fillna(0)
 
-# All your /api/stats/... endpoints are unchanged
-# ... (omitted for brevity but should be included in your final file) ...
+
+@app.route('/api/stats/pl-stats-1')
+def get_pl_stats_1():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({'most_goals': [], 'most_assists': [], 'most_g_a': [], 'most_saves': []})
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+    
+    common_group = ['web_name', 'team', 'position']
+    most_goals = get_top_performers(df_slice, common_group, {'goals_scored': ('goals_scored', 'sum'), 'expected_goals': ('expected_goals', 'sum')}, ['goals_scored', 'expected_goals'])
+    most_assists = get_top_performers(df_slice, common_group, {'assists': ('assists', 'sum'), 'expected_assists': ('expected_assists', 'sum')}, ['assists', 'expected_assists'])
+    most_g_a = get_top_performers(df_slice, common_group, {'goals_n_assists': ('goals_n_assists', 'sum'), 'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, ['goals_n_assists', 'expected_goal_involvements'])
+    most_saves = get_top_performers(df_slice, common_group, {'saves': ('saves', 'sum'), 'total_points': ('total_points', 'sum')}, ['saves', 'total_points'])
+
+    return jsonify({
+        'most_goals': most_goals.to_dict(orient='records'), 
+        'most_assists': most_assists.to_dict(orient='records'), 
+        'most_g_a': most_g_a.to_dict(orient='records'), 
+        'most_saves': most_saves.to_dict(orient='records')
+    })
+
+@app.route('/api/stats/pl-stats-2')
+def get_pl_stats_2():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({'most_bps': [], 'expected_goals': [], 'expected_assists': [], 'expected_gi': []})
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+
+    common_group = ['web_name', 'team', 'position']
+    most_bps = get_top_performers(df_slice, common_group, {'bps': ('bps', 'sum'), 'total_points': ('total_points', 'sum')}, ['bps', 'total_points'])
+    expected_goals = get_top_performers(df_slice, common_group, {'expected_goals': ('expected_goals', 'sum'), 'total_points': ('total_points', 'sum')}, ['expected_goals', 'total_points'])
+    expected_assists = get_top_performers(df_slice, common_group, {'expected_assists': ('expected_assists', 'sum'), 'total_points': ('total_points', 'sum')}, ['expected_assists', 'total_points'])
+    expected_gi = get_top_performers(df_slice, common_group, {'expected_goal_involvements': ('expected_goal_involvements', 'sum'), 'total_points': ('total_points', 'sum')}, ['expected_goal_involvements', 'total_points'])
+
+    return jsonify({
+        'most_bps': most_bps.to_dict(orient='records'), 
+        'expected_goals': expected_goals.to_dict(orient='records'), 
+        'expected_assists': expected_assists.to_dict(orient='records'), 
+        'expected_gi': expected_gi.to_dict(orient='records')
+    })
+
+@app.route('/api/stats/best-players-by-position')
+def get_best_players():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({'top_forwards': [], 'top_midfielders': [], 'top_defenders': [], 'top_goalkeepers': []})
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+
+    def get_top_by_pos(pos):
+        pos_df = df_slice.query("position==@pos")
+        return get_top_performers(pos_df, ['web_name', 'team', 'position'], {'total_points': ('total_points', 'sum'), 'ict_index': ('ict_index', 'sum')}, ['total_points', 'ict_index'])
+
+    return jsonify({
+        'top_forwards': get_top_by_pos('FWD').to_dict(orient='records'), 
+        'top_midfielders': get_top_by_pos('MID').to_dict(orient='records'), 
+        'top_defenders': get_top_by_pos('DEF').to_dict(orient='records'), 
+        'top_goalkeepers': get_top_by_pos('GKP').to_dict(orient='records')
+    })
+    
+@app.route('/api/stats/best-teams')
+def get_best_teams():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({'top_attack': [], 'worst_attack': [], 'top_defence': [], 'worst_defence': []})
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+
+    attack_df = df_slice.query("position in ['MID', 'FWD']")
+    defence_df = df_slice.query("position in ['DEF', 'GKP']")
+
+    top_attack = get_top_performers(attack_df, ['team'], {'total_points': ('total_points', 'sum'), 'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, ['total_points'])
+    worst_attack = get_top_performers(attack_df, ['team'], {'total_points': ('total_points', 'sum'), 'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, ['total_points'], ascending=True)
+    top_defence = get_top_performers(defence_df, ['team'], {'total_points': ('total_points', 'sum'), 'expected_goals_conceded': ('expected_goals_conceded', 'sum')}, ['total_points'])
+    worst_defence = get_top_performers(defence_df, ['team'], {'total_points': ('total_points', 'sum'), 'expected_goals_conceded': ('expected_goals_conceded', 'sum')}, ['total_points'], ascending=True)
+
+    return jsonify({
+        'top_attack': top_attack.to_dict(orient='records'), 
+        'worst_attack': worst_attack.to_dict(orient='records'), 
+        'top_defence': top_defence.to_dict(orient='records'), 
+        'worst_defence': worst_defence.to_dict(orient='records')
+    })
+
+@app.route('/api/stats/team-ict-xgi')
+def get_team_ict_xgi():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({'top_attack_ict': [], 'top_defence_ict': [], 'top_attack_xgi': [], 'top_defence_xgc': []})
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+
+    attack_df = df_slice.query("position in ['MID', 'FWD']")
+    defence_df = df_slice.query("position in ['DEF', 'GKP']")
+
+    top_attack_ict = get_top_performers(attack_df, ['team'], {'ict_index': ('ict_index', 'sum')}, ['ict_index'])
+    top_defence_ict = get_top_performers(defence_df, ['team'], {'ict_index': ('ict_index', 'sum')}, ['ict_index'])
+    top_attack_xgi = get_top_performers(attack_df, ['team'], {'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, ['expected_goal_involvements'])
+    top_defence_xgc = get_top_performers(defence_df, ['team'], {'expected_goals_conceded': ('expected_goals_conceded', 'sum')}, ['expected_goals_conceded'], ascending=True)
+
+    return jsonify({
+        'top_attack_ict': top_attack_ict.to_dict(orient='records'),
+        'top_defence_ict': top_defence_ict.to_dict(orient='records'),
+        'top_attack_xgi': top_attack_xgi.to_dict(orient='records'),
+        'top_defence_xgc': top_defence_xgc.to_dict(orient='records')
+    })
+
+@app.route('/api/stats/player-ict-by-position')
+def get_player_ict_by_position():
+    gw, lag = get_request_args()
+    df = ALL_GAMEWEEK_DATA
+    if df.empty: return jsonify({
+        'top_gkp_ict': [], 
+        'top_def_ict': [], 
+        'top_mid_ict': [], 
+        'top_fwd_ict': []
+    })
+    start_gw = gw - lag
+    df_slice = df.query("round <= @gw and round >= @start_gw")
+
+    def get_top_ict_by_pos(pos):
+        pos_df = df_slice.query("position==@pos")
+        return get_top_performers(pos_df, ['web_name', 'team', 'position'], {'ict_index': ('ict_index', 'sum'), 'total_points': ('total_points', 'sum')}, ['ict_index', 'total_points'])
+
+    return jsonify({
+        'top_gkp_ict': get_top_ict_by_pos('GKP').to_dict(orient='records'), 
+        'top_def_ict': get_top_ict_by_pos('DEF').to_dict(orient='records'), 
+        'top_mid_ict': get_top_ict_by_pos('MID').to_dict(orient='records'), 
+        'top_fwd_ict': get_top_ict_by_pos('FWD').to_dict(orient='records')
+    })
 
 @app.route('/api/download-stats')
 def download_stats():
-    # This endpoint also remains unchanged
-    # ... (omitted for brevity but should be included in your final file) ...
-    pass
+    gw, lag = get_request_args()
+    start_gw = gw - lag
+    df_slice = ALL_GAMEWEEK_DATA.query("round <= @gw and round >= @start_gw")
+
+    try:
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='openpyxl')
+        sheet_name = 'FPL_Stats'
+        startrow = 0
+
+        # --- Player Stats ---
+        player_stats_to_generate = [
+            {'title': 'Most Goals', 'agg': {'goals_scored': ('goals_scored', 'sum'), 'expected_goals': ('expected_goals', 'sum')}, 'sort': ['goals_scored', 'expected_goals']},
+            {'title': 'Most Assists', 'agg': {'assists': ('assists', 'sum'), 'expected_assists': ('expected_assists', 'sum')}, 'sort': ['assists', 'expected_assists']},
+            {'title': 'Most G+A', 'agg': {'goals_n_assists': ('goals_n_assists', 'sum'), 'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, 'sort': ['goals_n_assists', 'expected_goal_involvements']},
+            {'title': 'Most Saves', 'agg': {'saves': ('saves', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['saves', 'total_points']},
+            {'title': 'Most BPS', 'agg': {'bps': ('bps', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['bps', 'total_points']},
+            {'title': 'Highest ICT', 'agg': {'ict_index': ('ict_index', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['ict_index', 'total_points']},
+            {'title': 'Highest xG', 'agg': {'expected_goals': ('expected_goals', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['expected_goals', 'total_points']},
+            {'title': 'Highest xA', 'agg': {'expected_assists': ('expected_assists', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['expected_assists', 'total_points']},
+            {'title': 'Highest xGI', 'agg': {'expected_goal_involvements': ('expected_goal_involvements', 'sum'), 'total_points': ('total_points', 'sum')}, 'sort': ['expected_goal_involvements', 'total_points']}
+        ]
+        
+        common_group = ['web_name', 'team', 'position']
+        for stat in player_stats_to_generate:
+            df = get_top_performers(df_slice, common_group, stat['agg'], stat['sort'])
+            if not df.empty:
+                pd.DataFrame([stat['title']]).to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=False, header=False)
+                df.to_excel(writer, sheet_name=sheet_name, startrow=startrow + 1, index=False)
+                startrow += len(df) + 4
+
+        # --- Player ICT by Position ---
+        for pos in ['GKP', 'DEF', 'MID', 'FWD']:
+            pos_df = df_slice.query("position==@pos")
+            df = get_top_performers(pos_df, ['web_name', 'team', 'position'], {'ict_index': ('ict_index', 'sum'), 'total_points': ('total_points', 'sum')}, ['ict_index', 'total_points'])
+            if not df.empty:
+                title = f'Top {pos} (ICT)'
+                pd.DataFrame([title]).to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=False, header=False)
+                df.to_excel(writer, sheet_name=sheet_name, startrow=startrow + 1, index=False)
+                startrow += len(df) + 4
+
+        # --- Team Stats ---
+        attack_df = df_slice.query("position in ['MID', 'FWD']")
+        defence_df = df_slice.query("position in ['DEF', 'GKP']")
+        
+        team_stats_to_generate = [
+            {'title': 'Top Attack (Points)', 'df': attack_df, 'agg': {'total_points': ('total_points', 'sum'), 'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, 'sort': ['total_points']},
+            {'title': 'Top Defence (Points)', 'df': defence_df, 'agg': {'total_points': ('total_points', 'sum'), 'expected_goals_conceded': ('expected_goals_conceded', 'sum')}, 'sort': ['total_points']},
+            {'title': 'Top Attack (ICT)', 'df': attack_df, 'agg': {'ict_index': ('ict_index', 'sum')}, 'sort': ['ict_index']},
+            {'title': 'Top Defence (ICT)', 'df': defence_df, 'agg': {'ict_index': ('ict_index', 'sum')}, 'sort': ['ict_index']},
+            {'title': 'Top Attack (xGI)', 'df': attack_df, 'agg': {'expected_goal_involvements': ('expected_goal_involvements', 'sum')}, 'sort': ['expected_goal_involvements']},
+            {'title': 'Best Defence (xGC)', 'df': defence_df, 'agg': {'expected_goals_conceded': ('expected_goals_conceded', 'sum')}, 'sort': ['expected_goals_conceded'], 'ascending': True},
+        ]
+
+        for stat in team_stats_to_generate:
+            df = get_top_performers(stat['df'], ['team'], stat['agg'], stat['sort'], ascending=stat.get('ascending', False))
+            if not df.empty:
+                pd.DataFrame([stat['title']]).to_excel(writer, sheet_name=sheet_name, startrow=startrow, index=False, header=False)
+                df.to_excel(writer, sheet_name=sheet_name, startrow=startrow + 1, index=False)
+                startrow += len(df) + 4
+
+        writer.close()
+        output.seek(0)
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=f'fpl_stats_gw{gw}.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        print(f"Error generating Excel file: {e}")
+        return jsonify({'error': 'Failed to generate Excel file.'}), 500
 
 
 if __name__ == '__main__':
