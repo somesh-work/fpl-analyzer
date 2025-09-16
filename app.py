@@ -18,6 +18,7 @@ import redis
 import boto3
 from botocore.exceptions import ClientError
 from botocore.config import Config
+import threading
 
 # Suppress future warnings from pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -77,6 +78,13 @@ def get_gameweek_history(player_id):
     except Exception as e:
         # Return an empty DataFrame on error to avoid breaking the concatenation
         return pd.DataFrame()
+
+def run_data_refresh():
+    """This function will run in the background."""
+    print("Starting background data refresh...")
+    load_all_data(force_refresh=True)
+    calculate_all_review_teams()
+    print("Background data refresh complete.")
 
 def load_all_data(force_refresh=False):
     """
@@ -685,21 +693,18 @@ def get_transfer_suggestions():
 @app.route('/api/force-refresh', methods=['POST'])
 def force_refresh():
     try:
-        # We don't need to delete the R2 file, just the local one to trigger a refresh
-        if os.path.exists(ALL_DATA_CACHE_FILE):
-            os.remove(ALL_DATA_CACHE_FILE)
-            print(f"Deleted local cache file: {ALL_DATA_CACHE_FILE}")
-        
-        # Reload all data, forcing a fresh download and upload to R2
-        load_all_data(force_refresh=True)
-        
-        # Recalculate the historical predictions with the new data
-        calculate_all_review_teams()
-        
-        return jsonify({'message': 'Data refresh successful. All player data has been updated.'})
+        # Check if a refresh is already in progress if you want to be robust
+        # For now, we'll just start a new one.
+
+        # Create and start a new background thread
+        refresh_thread = threading.Thread(target=run_data_refresh)
+        refresh_thread.start()
+
+        # Immediately respond to the client
+        return jsonify({'message': 'Data refresh process has been started in the background. It may take a few minutes to complete.'}), 202
     except Exception as e:
-        print(f"Error during data refresh: {e}")
-        return jsonify({'error': 'An error occurred during the data refresh process.'}), 500
+        print(f"Error starting data refresh thread: {e}")
+        return jsonify({'error': 'An error occurred while trying to start the refresh process.'}), 500
 
 def get_top_performers(df_slice, group_by_cols, agg_dict, sort_by_cols, head_n=10, ascending=False):
     """Generic helper function to get top performers from a dataframe slice."""
